@@ -18,6 +18,9 @@
   "bugs": {
     "url": "https://github.com/kidwai/ec2-tool/issues"
   },
+  "bin": {
+     "ec2": "bin/ec2"
+  },
   "homepage": "https://github.com/kidwai/ec2-tool#readme",
   "dependencies": {
     "aws-sdk": "^2.44.0",

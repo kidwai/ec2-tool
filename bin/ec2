@@ -237,9 +237,10 @@ function configure() {
 													if (!fs.existsSync(__dirname.replace('bin', 'config')))
 														fs.mkdirSync(__dirname.replace('bin', 'config'));
 
+													try {
 													fs.writeFileSync(__dirname.replace('bin', 'config/' + config.profile + '.json'),
 																			JSON.stringify(config, null, 2));
-													return process.exit(0);
+													} catch (err) { console.log(yellow("Error writing credentials. Try running with sudo"))}
 												 });
 									 });
 						 });	
