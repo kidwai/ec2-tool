@@ -21,4 +21,8 @@ $ npm install -g ec2-tool
 
 #### Usage
 
+```
+$ ec2
+```
+
 
