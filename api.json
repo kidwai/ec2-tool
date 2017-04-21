@@ -1,0 +1,129 @@
+{
+	"name": "ec2",
+	"description": "Command-line interface to common ec2 operations.",
+	"usage": "ec2 <command> [parameters]",
+	"options": {
+		"--profile": {
+			"type": "string",
+			"default": "default",
+			"description": "The AWS profile to use."
+		},
+		"--id": {
+			"type": "string",
+			"description": "ID of the instance on which to operate."
+		},
+		"--name": {
+			"type": "string",
+			"description": "Name of the instance on which to operate."
+		}
+	},
+	"commands": {
+		"configure": {
+			"description": "Configure AWS credentials.",
+			"usage": "ec2 configure",
+			"parameters": {}
+		},
+		"console": {
+			"description": "Enter ec2 management console.",
+			"usage": "ec2 console",
+			"parameters": {}
+		},
+		"launch": {
+			"description": "Launch an ec2 instance.",
+			"usage": "ec2 launch [parameters]",
+			"parameters": {
+				"--type": {
+					"type": "string",
+					"description": "the ec2 instance type"
+				},
+				"--ami": {
+					"type": "string",
+					"description": "launch ec2 instance from an ami id"
+				},
+				"--name": {
+					"type": "string",
+					"description": "set a tag for this instance"
+				},
+				"--key": {
+					"type": "string",
+					"description": "set the key to use for accessing this instance",
+					"default": null
+				}
+			}
+		},
+		"ssh": {
+			"description": "Connect to an ec2 instance via ssh.",
+			"usage": "ec2 ssh [parameters]",
+			"parameters": {
+				"--key": {
+					"type": "string",
+					"description": "the key to use",
+					"default": null
+				},
+				"--id": {
+					"type": "string",
+					"description": "the instance id to connect to"
+				},
+				"--name": {
+					"type": "string",
+					"description": "name of the instance to connect to"
+				}
+			}
+		},
+		"mount": {
+			"description": "Mount an ec2 instance to local filesystem via sshfs.",
+			"parameters": {
+				"--id": {
+					"type": "string"					
+				},
+				"--name": {
+					"type": "string",
+					"description": "Name of the instance to mount"
+				}
+			}
+		},
+		"start": {
+			"description": "start existing ec2 instances",
+			"usage": "ec2 start [parameters]",
+			"parameters": {
+				"--id": {
+					"type": "string",
+					"description": "id of instance to start"
+				},
+				"--name": {
+					"description": "names of instance to start",
+					"type": "string"
+				}
+			}
+		},
+		"stop": {
+			"description": "stop existing ec2 instances",
+			"usage": "ec2 stop [parameters]",
+			"parameters": {
+				"--id": {
+					"type": "string",
+					"description": "id of instance to stop"
+				},
+				"--name": {
+					"description": "names of instance to start",
+					"type": "string"
+				}				
+			}
+		},
+		"terminate": {
+			"description": "terminate existing ec2 instances",
+			"usage": "ec2 terminate [parameters]",
+			"parameters": {
+				"--id": {
+					"type": "string",
+					"description": "id of instance to terminate"
+				}
+			}
+		},
+		"help": {
+			"description": "display help",
+			"usage": "ec2 help",
+			"parameters": {}
+		}
+	}
+}
