@@ -1,252 +1,58 @@
 #!/usr/bin/env node
 var API = require('../api'),
 	AWS = require('aws-sdk'),
-	chalk = require('chalk'),
-	cp = require('child_process'),
 	fs = require('fs'),
-	blessed = require('blessed'),
 	path  = require('path'),
-	yellow = chalk.yellow,
-	grey = chalk.grey,
-	log = console.log,
 	argv = parseArgs();
 
 
-//if (argv.command === 'help') {help()}
+
+
+if (argv.command === 'help') {help()}
 if (argv.command === 'configure') {configure()}
-else if (!fs.existsSync(__dirname.replace('bin', 'config'))) {
-	log(yellow('No AWS credentials found. Try "ec2 configure"'));
-	process.exit(0);
-} else {
-	managementConsole();
-}
-
-//if (argv.command === 'console') {managementConsole()}
-
-
-
-function managementConsole () {
-	var ec2 = getEC2();
-	ec2.describeInstances(function (err, response) {
-		if (err) {
-			console.log("Error: ", err.code);
-			console.log(err.message);
-		}
-		else {
-			instances = [];
-	 		response.Reservations.forEach(
-	 			(reservation) => {
-	 				instances = instances.concat(reservation.Instances);
-	 			});
-			var screen = blessed.screen({smartCSR: true	});
-				var id = 'Instance Id',
-					ip = 'Public Ip',
-					key = 'Key Name',
-					state = 'State',
-					type = 'Type',
-					name = 'Name';
-
-				id = id + new Array(30-id.length).join(' ');
-				ip = ip + new Array(20-ip.length).join(' ');
-				key = key + new Array(30-key.length).join(' ');
-				state = state + new Array(20 - state.length).join(' ');
-				type = type + new Array(20 - type.length).join(' ');
-				name = name + new Array(40 - name.length).join(' ');
-
-			var box = blessed.box({  
-			  parent: screen,
-			  width: '70%',
-			  height: '50%',
-			  top: '10%',
-			  left: 'center',
-			  align: 'center',
-			  fg: 'blue',
-			  border: {
-			  	type: 'line'
-			  },
-				  content: `   ${name}${id}${ip}${key}${state}${type}`,
-			  keys: true
-			});
-
-
-			var list = blessed.list({
-				parent: box,						
-				top: '15%',
-				align: 'center',
-				selectedBg: 'blue',
-				mouse: true,
-				keys: true
-				}); 
-
-			var logs = blessed.log({
-				parent: screen,
-				height: '30%',
-				left: '10%',
-				top: '70%'});
-			var menu = blessed.ListBar({
-							parent: list,
-							top: '90%',
-							align: 'center',
-							commands: {
-								start: () => {
-									var instance = instances[list.selected],
-										state = instance.State.Name,
-										id = instance.InstanceId;
-									if (state === 'stopped' || state === 'stopping' || state === 'terminated') {
-										ec2.startInstances({
-											InstanceIds: [instances[list.selected].InstanceId]
-										}, (err, result) => {
-											if (err) throw err;
-										logs.log('> ' + 'starting ' + id);
-										});
-									} else {
-										logs.log('> ' + id + ' is not in a state that can be started.');
-									}
-								},
-								stop: ()=>{
-									var instance = instances[list.selected],
-										state = instance.State.Name,
-										id = instance.InstanceId;
-									if (state === 'running' || state === 'pending') {
-										ec2.stopInstances({
-											InstanceIds: [instances[list.selected].InstanceId]
-										}, (err, result) => {
-											instance = instances[list.selected];
-											if(err) throw err;
-											logs.log('> ' + result.StoppingInstances[0].CurrentState.Name,instance.InstanceId);
-										})							
-									} else {
-										logs.log('> ' + instances[list.selected].InstanceId + ' is not in a state that can be stopped.');								
-									}
-								},
-								terminate: () => {
-									var instance = instances[list.selected],
-										state = instance.State.Name,
-										id = instance.InstanceId;
-									if (state === 'running' || state === 'pending' || state === 'stopped') {
-										ec2.terminateInstances({
-											InstanceIds: [instances[list.selected].InstanceId]
-										}, (err, result) => {
-											if(err) throw err;
-											logs.log('> terminating ' + id);
-										})							
-									} else {
-										logs.log('> ' + id + ' is not in a state that can be terminated.');
-									}
-								},
-								ssh: () => {
-									instance = instances[list.selected];
-									screen.destroy();
-									cp.spawn('ssh', 
-									  ['-i', process.env.HOME + '/.aws/keys/' + instance.KeyName + '.pem',
-										'ubuntu@' + instance.PublicIpAddress], {stdio: 'inherit'});
-								},
-								mount: () => {
-									instance = instances[list.selected];
-									var mountPoint = instance.Tags[0].Name || instance.PublicIpAddress;
-									logs.log(yellow("Mount point: ") +
-											 grey(process.env.PWD + '/' + mountPoint, "\t"));
-									if (!fs.existsSync(mountPoint))
-										cp.execSync('mkdir ' + mountPoint);
-										
-									cp.exec('sshfs -o allow_other,IdentityFile=' +
-											process.env.HOME + '/.aws/keys/' + instance.KeyName + '.pem ' +
-											'ubuntu@' + instance.PublicIpAddress + ':/home/ubuntu ' + 
-											mountPoint, (err, data) => {
-											if(!err) {
-												logs.log('Mounted ubuntu@' + instance.PublicIpAddress, 'to', mountPoint);
-											} else {
-												logs.log(err);
-											}
-									})	
-								}
-							},
-							autoCommandKeys: true});
-			list.on('wheeldown', list.down);
-			list.on('wheelup', list.up);
-			list.on('select', (selection) => {});	
-			list.setItems(
-				instances.sort((a,b) => {
-					return a.State.Name > b.State.Name ? 1 : 
-						   a.State.Name < b.State.Name ? -1 : 0;
-				}).map((instance)=>{
-
-				var id = instance.InstanceId,
-					ip = instance.PublicIpAddress || '',
-					key = instance.KeyName,
-					state = instance.State.Name,
-					type = instance.InstanceType;
-					name = instance.Tags['0']['Value'] || '';
-				id = id + new Array(30-id.length).join(' ');
-				name = name + new Array(40-name.length).join(' ');
-				ip = ip + new Array(20-ip.length).join(' ');
-				key = key + new Array(30-key.length).join(' ');
-				state = state + new Array(20 - state.length).join(' ');
-				type = type + new Array(20 - type.length).join(' ');
-				return ` ${name}${id}${ip}${key}${state}${type}`
-			}));
-			list.select(0);
-			screen.key('q', (ch, key)=>{return process.exit(0)});
-			screen.render(); 
-		}
-	});
-}
-
-
-
-function getEC2() {
-	var profile = argv.opts['--profile'] || 'default';
-	var file    = path.resolve(__dirname.replace('bin', 
-							   'config/' + profile + '.json'));
-	var config  = require(file);
-	try {
-		AWS.config.loadFromPath(file);
-		return new AWS.EC2();	
-	}
-	catch (err) {
-		console.log("Could not load AWS credentials. Try \"ec2 configure\"");
-		process.exit(0);
-	}
+else {
+	EC2 = require('..');
+	ec2 = new EC2({profile: argv.opts['--profile'] || 'default'});
+	ec2[argv.command](argv.params);
 }
 
 function configure() {
-	var config = {
-		profile: 'default',
-		region: 'us-east'
-	};
-	var rl = require('readline').createInterface({
-		input: process.stdin,
-		output: process.stdout
-	});
+  var prompt = require("prompt");
+  var colors = require("colors/safe");
+  prompt.message = "";
+  prompt.delimiter = " ";
 
-	rl.question(yellow("profile: ") +
-				grey("default\t"),
-			 function (answer) {
-			 	if (answer) config.profile = answer;
-				rl.question(yellow("region: ") +
-						 grey(config.region, "\t"),
-						 function (answer) {
-						 	if (answer) config.region = answer;
-							rl.question(yellow("AWS Access Key ID:\t"),
-									 function (answer) {
-									 	if (answer) config.accessKeyId = answer;
-										rl.question(yellow("AWS Secret Access Key:\t"),
-												 function (answer) {
-												 	if (answer) config.secretAccessKey = answer;
-												 	rl.close();
-													if (!fs.existsSync(__dirname.replace('bin', 'config')))
-														fs.mkdirSync(__dirname.replace('bin', 'config'));
-
-													try {
-													fs.writeFileSync(__dirname.replace('bin', 'config/' + config.profile + '.json'),
-																			JSON.stringify(config, null, 2));
-													} catch (err) { console.log(yellow("Error writing credentials. Try running with sudo"))}
-												 });
-									 });
-						 });	
-			 });
+  prompt.start();
+   prompt.get({
+    properties: {
+      profile: {
+        description: colors.yellow("profile"),
+        default: 'default'
+      },
+      region: {
+      	description: colors.yellow("region"),
+      	default: 'us-east-1'
+      },
+      accessKeyId: {
+      	description: colors.yellow("access key id")
+      },
+      secretAccessKey: {
+      	description: colors.yellow("secret access key")
+      },
+      privateKeys: {
+      	description: colors.yellow("private keys")
+      }
+    }
+  }, function (err, result) {
+  	if (err) return process.exit(0);
+  	if (!fs.existsSync(process.env.HOME + '/.aws'))
+  		fs.mkdirSync(process.env.HOME + '/.aws');
+  	fs.writeFileSync(process.env.HOME + `/.aws/${result.profile}.json`,
+  		JSON.stringify(result, null, 2));
+  });
 }
-function help (cmd) {
+
+function help (params) {
 	var	name,
 		usage,
 		description,
@@ -267,6 +73,7 @@ function help (cmd) {
 			return;
 		}}
 
+	chalk = require('chalk');
 	console.log(chalk.bold('NAME:'));
 	console.log('   ', output.name, ' - ',
 				output.description);
@@ -299,66 +106,7 @@ function help (cmd) {
 		}
 	}
 	console.log();
-	return process.exit(0);
-}
-
-
-
-function start(id) {
-	var ec2 = getEC2().startInstances({InstanceIds: [id]},
-		function (err, result) {
-			if (err) {
-				console.log(yellow("Error: ", err.message))
-				return process.exit(0);
-			}
-
-			try {
-				if (result.StartingInstances[0].InstanceId === id)
-					console.log(yellow("Starting " + id));
-			} catch (err) {
-				console.log(yellow("Error", err.message));
-			}
-
-	});
-}
-
-function stop (id) {
-	var ec2 = getEC2().stopInstances({InstanceIds: [id]},
-		function (err, result) {
-			if (err) {
-				console.log(yellow("Error: ", err.message))
-				return process.exit(0);				
-			}
-			try {
-				if (result.StoppingInstances[0].InstanceId === id)
-					console.log(yellow("Stopping " + id));
-			} catch (err) {
-				console.log(yellow("Error", err.message));
-			}
-		});
-}
-
-function terminate (id) {
-	var ec2 = getEC2().terminateInstances({InstanceIds: [id]},
-		function (err, result) {
-			if (err) {
-				console.log(yellow("Error: ", err.message))
-				return process.exit(0);
-			}
-
-
-			try {
-				if (result.TerminatingInstances[0].InstanceId === id)
-					console.log(yellow("Terminating " + id));
-					return process.exit(0);
-			} catch (err) {
-				console.log(yellow("Error", err.message));
-				return process.exit(0);
-			}
-		});
-}
-
-
+	return process.exit(0);}
 function parseArgs() {
 	argv = {
 	   _: process.argv.slice(2),
@@ -374,8 +122,21 @@ function parseArgs() {
 			argv.opts[arg] = argv._[++i];
 		else if (arg in API.commands)
 			argv.command = arg;
-		if (arg in API.commands[argv.command].parameters)
-			argv.params[arg] = argv._[++i];
+		else if (arg in API.commands[argv.command].parameters) {
+			var param = API.commands[argv.command]
+						   .parameters[arg];
+
+
+			argv.params[param.name] = param.type === 'boolean' ? true :
+							   param.type === 'csv' ? argv._[++i].split(',') :
+							   param.type === 'json' ? JSON.parse(argv._[++i]) :
+							   argv._[++i];
+		}
+	}
+
+	for (var key in API.commands[argv.command].parameters) {
+		var param = API.commands[argv.command].parameters[key];
+		argv.params[param.name] = argv.params[param.name] || param.default;
 	}
 	return argv;
 }
