@@ -19,21 +19,9 @@ A command-line tool for interacting with aws ec2 instances faster.
 $ npm install -g ec2-tool
 ```
 
-Configure a profile with your AWS credentials and the location of your `.pem` files. 
-
-
-```
- $ ec2 configure
- profile  (default) 
- region  (us-east-1) 
- output (json) 
- access key id  KROAKRKWPFLKPDSGKFASSFEA 
- secret access key  jty34JFDSAFNDSAKSAJEOe9afhidnafneqwjkfs
- private keys  $HOME/.aws/keys
-```
-
-
 ### Usage
+
+
 
 ```
 $ ec2
@@ -96,10 +84,8 @@ OPTIONS
 ```
 instance-id				state		name	
 
-i-3b4e3e35				stopped		bigchaindb		
-i-4044fa616243879cfb5	running		test_a		
-i-008042f3teep77e408	running		test_b	
-
+i-3b404bc				running		momo-a
+i-40404b3240rb4b43n45			stopped		momo-b
 
 ```
 
@@ -107,17 +93,52 @@ i-008042f3teep77e408	running		test_b
 
 ##### ec2 ssh
 
+* Open an ssh connection with an ec2 instance.
 
-Open an ssh connection for the instance with name = "momo".
+```
+$ ec2 ssh -n momo
+Welcome to Ubuntu 16.04.1 LTS (GNU/Linux 4.4.0-72-generic x86_64)
 
-* **[ kidwai ] $** ec2 ssh -n momo
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
+
+  Get cloud support with Ubuntu Advantage Cloud Guest:
+    http://www.ubuntu.com/business/services/cloud
+
+94 packages can be updated.
+0 updates are security updates.
+
+
+ubuntu@ip-172-31-27-62:~$ 
+```
 
 
 ***
 
 ##### ec2 mount
 
-* **[ kidwai ] $** ec2 mount -n momo   # connects to the first instance named "momo"
-* **[ kidwai ] $** ec2 umount -n momo  # disconnects from any instances named "momo"
+* Mount the first instance named "momo"
 
+```
+ $ ec2 mount -n momo
+```
+
+* Unmount the first instance named momo
+
+
+```
+ $ ec2 umount -n momo
+```
+
+
+##### ec2 start,stop,terminate
+
+* Start,stop, or terminate an ec2 instance.
+
+```
+ $ ec2 start -n zainab
+ $ ec2 stop -n momo
+ $ ec2 terminate -i i-34b4b5b3b3
+```
 
