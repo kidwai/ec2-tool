@@ -71,9 +71,10 @@ OPTIONS
 ***
 
 
-##### ls 
+#### ls 
 
 * Lists ec2 instances for the authenticated user.
+
 
 ```
 instance-id				state		name	
@@ -104,12 +105,15 @@ $ ec2 ssh -n momo
 
 * Mount the first instance named "momo"
 
-
+***
 
 
 ```
  $ ec2 mount -n momo
 ```
+
+
+#### umount
 
 * Unmount the first instance named momo
 
