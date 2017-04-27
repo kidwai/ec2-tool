@@ -28,7 +28,6 @@ USAGE:
 COMMANDS:
   ls                   list ec2 instances
   ssh                  Connect to an ec2 instance via ssh.
-  select               selector for ec2 instances
   mount                Mount an ec2 instance locally via sshfs.
   umount               Unmount a locally mounted ec2 instance
   start                start existing ec2 instances
@@ -86,7 +85,7 @@ i-40404b3240rb4b43n45			stopped		momo-b
 
 ***
 
-##### ec2 ssh
+##### ssh
 
 * Open an ssh connection with an ec2 instance.
 
@@ -111,9 +110,14 @@ ubuntu@ip-172-31-27-62:~$
 
 ***
 
-##### ec2 mount
+
+
+#### mount
 
 * Mount the first instance named "momo"
+
+
+
 
 ```
  $ ec2 mount -n momo
@@ -122,12 +126,16 @@ ubuntu@ip-172-31-27-62:~$
 * Unmount the first instance named momo
 
 
+***
+
+
 ```
  $ ec2 umount -n momo
 ```
 
+***
 
-##### ec2 start,stop,terminate
+#### start,stop,terminate
 
 * Start,stop, or terminate an ec2 instance.
 
@@ -135,5 +143,24 @@ ubuntu@ip-172-31-27-62:~$
  $ ec2 start -n zainab
  $ ec2 stop -n momo
  $ ec2 terminate -i i-34b4b5b3b3
+```
+
+### Profiles
+
+
+Multiple profiles can be configured then supplied with '-p':
+
+```
+ $ ec2 configure 
+  profile: (default)  test_profile
+  region:  (us-east-1) us-east-1
+  access key id "access_key_id"
+  secret access key "secret_access_key"
+
+
+instance-id		state		name	
+
+i-0ec3c9b04d1428ba8	terminated		momo	
+ $ ec2 ls --profile test_profile
 ```
 
