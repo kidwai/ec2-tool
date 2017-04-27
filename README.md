@@ -2,11 +2,6 @@
 
 A command-line tool for interacting with aws ec2 instances faster.
 
-***
-
-**Disclaimer:** This is a personal convenience tool. Use it at your own risk.
-
-***
 
 ### Prerequisites
 
