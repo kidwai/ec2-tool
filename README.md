@@ -49,7 +49,7 @@ OPTIONS
 
 
 
-#### ec2 configure
+#### configure
 
 * Configure your AWS credentials and directory of private keys (.pem):
 
@@ -71,7 +71,7 @@ OPTIONS
 ***
 
 
-#### ec2 ls 
+##### ls 
 
 * Lists ec2 instances for the authenticated user.
 
@@ -91,20 +91,8 @@ i-40404b3240rb4b43n45			stopped		momo-b
 
 ```
 $ ec2 ssh -n momo
-Welcome to Ubuntu 16.04.1 LTS (GNU/Linux 4.4.0-72-generic x86_64)
 
- * Documentation:  https://help.ubuntu.com
- * Management:     https://landscape.canonical.com
- * Support:        https://ubuntu.com/advantage
-
-  Get cloud support with Ubuntu Advantage Cloud Guest:
-    http://www.ubuntu.com/business/services/cloud
-
-94 packages can be updated.
-0 updates are security updates.
-
-
-ubuntu@ip-172-31-27-62:~$ 
+  ubuntu@ip-172-31-27-62:~$ 
 ```
 
 
@@ -158,9 +146,13 @@ Multiple profiles can be configured then supplied with '-p':
   secret access key "secret_access_key"
 
 
-instance-id		state		name	
+instance-id		state		        name	
 
 i-0ec3c9b04d1428ba8	terminated		momo	
+
  $ ec2 ls --profile test_profile
+ $ ec2 ls --profile test_profile ssh momo
+
+ ubuntu@ip-172-31-27-62:~$
 ```
 
