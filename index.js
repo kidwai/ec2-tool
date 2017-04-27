@@ -165,7 +165,7 @@ function EC2 (opts) {
 
 
 
-	this.stop = function (params) {
+	this.terminate = function (params) {
 		var ec2 = new AWS.EC2();
 		var cb = function (err, result) {
 			if (err) {
