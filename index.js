@@ -129,63 +129,57 @@ function EC2 (opts) {
 					{stdio: 'inherit'});
 	}
 
-	this.start = function(params) {
+	this.start = function (params) {
 		var ec2 = new AWS.EC2();
-			ec2.startInstances ({
-				InstanceIds: [params['instance-id']]
-			}, function (err, result) {
-				if (err) {
-					console.log(chalk.yellow("Error: ", err.message))
-					return process.exit(0);
-				}
+		var cb = function (err, result) {
+			if (err) {
+				console.log(chalk.yellow("Error: ", err.message))
+			}
+		}
 
-				try {
-					if (result.StartingInstances[0].InstanceId === id)
-						console.log(chalk.yellow("Starting " + id));
-				} catch (err) {
-					console.log(chalk.yellow("Error", err.message));
-				}
-			});
-	}
+
+		this.getInstance(params).then((instance) => {
+				ec2.startInstances({InstanceIds: [instance.InstanceId]}, cb);
+			})
+	};
 
 	this.stop = function (params) {
 		var ec2 = new AWS.EC2();
-			ec2.stopInstances({InstanceIds: [params.id]},
-			function (err, result) {
-				if (err) {
-					console.log(chalk.yellow("Error: ", err.message))
-					return process.exit(0);				
-				}
-				try {
-					if (result.StoppingInstances[0].InstanceId === id)
-						console.log(chalk.yellow("Stopping " + id));
-				} catch (err) {
-					console.log(chalk.yellow("Error", err.message));
-				}
-			});
-	}
+		var cb = function (err, result) {
+			if (err) {
+				console.log(chalk.yellow("Error: ", err.message))
+				return process.exit(0);				
+			} else if (result.StoppingInstances[0].InstanceId === params.id) {
+					console.log(chalk.yellow("Stopping " + params.id));
+			}
+		}
+
+
+		this.getInstance(params).then((instance) => {
+				ec2.stopInstances({InstanceIds: [instance.InstanceId]}, cb);
+			})
+	};
 
 
 
-	this.terminate = function  (params) {
+
+
+
+	this.stop = function (params) {
 		var ec2 = new AWS.EC2();
+		var cb = function (err, result) {
+			if (err) {
+				console.log(chalk.yellow("Error: ", err.message))
+				return process.exit(0);				
+			} else if (result.TerminatingInstances[0].InstanceId === params.id) {
+					console.log(chalk.yellow("Stopping " + params.id));
+			}
+		}
 
-		terminateInstances({InstanceIds: [params.id]},
-			function (err, result) {
-				if (err) {
-					console.log(chalk.yellow("Error: ", err.message));
-					console.log(chalk.yellow('What went wrong?'));
-					return process.exit(0);
-				}
 
-				try {
-					if (result.TerminatingInstances[0].InstanceId === id)
-						console.log(chalk.yellow("Terminating " + id));
-						return process.exit(0);
-				} catch (err) {
-					console.log(chalk.yellow("Error", err.message));
-					return process.exit(0);
-				}
-			});
-	}
+		this.getInstance(params).then((instance) => {
+				ec2.terminateInstances({InstanceIds: [instance.InstanceId]}, cb);
+			})
+	};
+
 }

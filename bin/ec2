@@ -8,6 +8,7 @@ var API = require('../api'),
 
 
 
+
 if (argv.command === 'help') {help()}
 if (argv.command === 'configure') {configure()}
 else {
@@ -52,7 +53,7 @@ function configure() {
   });
 }
 
-function help (params) {
+function help (cmd) {
 	var	name,
 		usage,
 		description,

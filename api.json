@@ -99,12 +99,14 @@
 			"description": "start existing ec2 instances",
 			"usage": "ec2 start [parameters]",
 			"parameters": {
-				"-id": {
+				"-i": {
+					"name": "id",
 					"type": "string",
 					"description": "id of instance to start"
 				},
-				"-name": {
-					"description": "names of instance to start",
+				"-n": {
+					"name": "name",
+					"description": "name of instance to start",
 					"type": "string"
 				}
 			}
@@ -113,11 +115,13 @@
 			"description": "stop existing ec2 instances",
 			"usage": "ec2 stop [parameters]",
 			"parameters": {
-				"-id": {
+				"-i": {
+					"name": "id",
 					"type": "string",
 					"description": "id of instance to stop"
 				},
-				"-name": {
+				"-n": {
+					"name": "name",
 					"description": "names of instance to start",
 					"type": "string"
 				}				
@@ -144,7 +148,7 @@
 		},
 		"help": {
 			"description": "display help",
-			"usage": "ec2 help",
+			"usage": "ec2 help [cmd]",
 			"parameters": {}
 		}
 	}
