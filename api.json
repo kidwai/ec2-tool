@@ -14,6 +14,12 @@
 			"description": "list ec2 instances",
 			"usage": "ec2 ls [parameters]",
 			"parameters": {
+				"-p": {
+					"name": "profile",
+					"type": "string",
+					"description": "The AWS profile to use",
+					"default": "default"
+				},
 				"-f": {
 					"name": "fields",
 					"type": "csv",
@@ -44,6 +50,46 @@
 			"description": "Connect to an ec2 instance via ssh.",
 			"usage": "ec2 ssh [parameters]",
 			"parameters": {
+				"-p": {
+					"name": "profile",
+					"type": "string",
+					"description": "The AWS profile to use",
+					"default": "default"
+				},
+				"-k": {
+					"name": "key",
+					"type": "string",
+					"description": "the key to use",
+					"default": null
+				},
+				"-i": {
+					"name": "id",
+					"type": "string",
+					"description": "the instance id to connect to"
+				},
+				"-n": {
+					"name": "name",
+					"type": "string",
+					"description": "name of the instance to connect to"
+				},
+				"-c": {
+					"name": "command",
+					"type": "string",
+					"description": "the command to run"
+				}
+
+			}
+		},
+		"sftp": {
+			"description": "Transfer files with an ec2 instance via sftp.",
+			"usage": "ec2 sftp [parameters]",
+			"parameters": {
+				"-p": {
+					"name": "profile",
+					"type": "string",
+					"description": "The AWS profile to use",
+					"default": "default"
+				},
 				"-k": {
 					"name": "key",
 					"type": "string",
@@ -66,6 +112,12 @@
 			"description": "Mount an ec2 instance locally via sshfs.",
 			"usage": "ec2 mount [parameters]",
 			"parameters": {
+				"-p": {
+					"name": "profile",
+					"type": "string",
+					"description": "The AWS profile to use",
+					"default": "default"
+				},
 				"-k": {
 					"name": "key",
 					"type": "string",
@@ -88,10 +140,21 @@
 			"description": "Unmount a locally mounted ec2 instance",
 			"usage": "ec2 umount [parameters]",
 			"parameters": {
+				"-p": {
+					"name": "profile",
+					"type": "string",
+					"description": "The AWS profile to use",
+					"default": "default"
+				},
 				"-h": {
 					"name": "host",
 					"description": "The directory to which the instance is mounted",
 					"type": "string"
+				},
+				"-n": {
+					"name": "name",
+					"type": "string",
+					"description": "name of instance to connect to"
 				}
 			}
 		},
@@ -99,6 +162,12 @@
 			"description": "start existing ec2 instances",
 			"usage": "ec2 start [parameters]",
 			"parameters": {
+				"-p": {
+					"name": "profile",
+					"type": "string",
+					"description": "The AWS profile to use",
+					"default": "default"
+				},				
 				"-i": {
 					"name": "id",
 					"type": "string",
@@ -115,6 +184,12 @@
 			"description": "stop existing ec2 instances",
 			"usage": "ec2 stop [parameters]",
 			"parameters": {
+				"-p": {
+					"name": "profile",
+					"type": "string",
+					"description": "The AWS profile to use",
+					"default": "default"
+				},
 				"-i": {
 					"name": "id",
 					"type": "string",
@@ -131,6 +206,12 @@
 			"description": "terminate existing ec2 instances",
 			"usage": "ec2 terminate [parameters]",
 			"parameters": {
+				"-p": {
+					"name": "profile",
+					"type": "string",
+					"description": "The AWS profile to use",
+					"default": "default"
+				},
 				"-id": {
 					"type": "string",
 					"description": "id of instance to terminate"

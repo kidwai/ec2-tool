@@ -35,25 +35,65 @@ function EC2 (opts) {
 		});
 
 		var keys = [
-			'instance-id',
 			'state',
+			'ip',
 			'name'
 		];
 
-		process.stdout.write(chalk.bold.yellow(keys[0]) + '\t\t');
-		process.stdout.write(chalk.bold.yellow(keys[1]) + '\t\t');
-		process.stdout.write(chalk.bold.yellow(keys[2]) + '\t\n');
-		console.log();
+
+
+		for (var i = 0 ; i < keys.length; i++) {
+			if (keys[i] === 'name')
+				keys[i] += '           ';
+
+			process.stdout.write(chalk.bold.yellow(keys[i]) + '                ')
+		}
+		console.log('\n');
 	   instances.forEach((instance) => {
-		   		process.stdout.write(chalk.bold(instance.InstanceId) + '\t');
-		   		if (instance.InstanceId.length === 10)
-		   			process.stdout.write('\t');
-		   		instance.PublicIpAddress = instance.PublicIpAddress || '          ';
-		   		process.stdout.write(instance.State.Name + '\t\t');
-		   		process.stdout.write(instance.Tags['0']['Value'] + '\t\t');
-		   		console.log();
-		   });
-		 console.log();
+
+			if (typeof instance.PublicIpAddress == 'undefined' &&
+				typeof instance.PublicDnsName !== 'undefined')
+				instance.PublicIpAddress = instance.PublicDnsName
+													.split('-')
+													.slice(1, 4)
+													.join('.');
+
+			instance.Tags.forEach((tag) =>{
+				if (tag.Key.toLowerCase() === 'name') {
+					instance.name = tag.Value;		   				
+				}
+			});
+
+			instance.ip = instance.PublicIpAddress;
+			instance.state = instance.State.Name;
+
+			stateColours = {
+				stopped: 'red',
+				terminated: 'red',
+				running: 'green',
+				stopping: 'blue',
+				starting: 'green'
+			}
+
+			color = stateColours[instance.state]
+
+			instance.state = chalk[stateColours[instance.state]](instance.state)
+			instance.ip    = chalk[stateColours[instance.State.Name]](instance.ip)
+			if (instance.State.Name === 'running') {
+				instance.state = chalk.bold(instance.state)
+				instance.ip = chalk.bold(instance.ip)
+				instance.name = chalk.bold(instance.name)
+			}
+
+			keys = ['state', 'ip', 'name']
+
+			while (instance.ip.length < 14)
+				instance.ip += ' ';
+
+			process.stdout.write(instance.state + '\t\t'  + instance.ip + '\t\t' + instance.name + '\n')
+
+		});
+	console.log();
 		})
 	}
 
@@ -68,7 +108,20 @@ function EC2 (opts) {
 						  .forEach((reservation) => {
 						  	reservation.Instances
 						  			   .forEach((instance) => {
+										if (typeof instance.PublicIpAddress == 'undefined' &&
+												typeof instance.PublicDnsName !== 'undefined')
+												instance.PublicIpAddress = instance.PublicDnsName
+																					.split('-')
+																					.slice(1, 4)
+																					.join('.');
+										instance.ip = instance.PublicIpAddress;
+										instance.Tags.forEach(function (tag) {
+											if (tag.Key === 'Name')
+												instance.name = tag.Value;
+										})
 						  			   	instances.push(instance);
+
+
 						  			   });
 						  })
 					resolve(instances);
@@ -85,49 +138,136 @@ function EC2 (opts) {
 				params.name = params.name || '';
 				params.ip = params.ip || '';
 				if (instances[i].InstanceId === params.id ||
-					instances[i].Tags['0']['Value'] === params.name ||
-					instances[i].PublicIpAddress === params.ip) {
+					instances[i].name === params.name ||
+					instances[i].ip === params.ip) {
 					resolve(instances[i]);
-				}	
+				}
+				else if (i+1 === instances.length) {
+					console.log(chalk.bold.red('error: instance not found'));
+					reject(err);							
+				}
 			}
-		})
+		}).catch(()=>{});
 	});
 	}
 
 	this.ssh = function (params) {
-		if (typeof params === 'undefined') {
-			return console.log("Missing required inputs.");			
-		}
-		this.getInstance(params).then((instance) => {
-			var child = cp.spawn('ssh',
-				['-i', 
-				this.privateKeys + '/' + 
-				instance.KeyName + '.pem',
-				'ubuntu@' + instance.PublicIpAddress],
-				{stdio: 'inherit'});
-		});
-	}
-
-	this.mount = function (params) {
-		this.getInstance(params).then((instance) => {
-			var mountPoint = params.mountPoint || instance.Tags['0']['Value'];
-			if (!fs.existsSync(mountPoint))
-				fs.mkdirSync(mountPoint);
-			var child = cp.spawn('sshfs',
-				['-o', 'allow_other,' +
-				'IdentityFile="' + this.privateKeys + '/' +
-				instance.KeyName + '.pem' + '"',
-				'ubuntu@' + instance.PublicIpAddress +
-				':/home/ubuntu', mountPoint],
-				{stdio: 'inherit'})
+		return new Promise ((resolve, reject) => {
+			if (typeof params === 'undefined') {
+				reject( console.log("Missing required inputs."));			
+			}
+			this.getInstance(params).then((instance) => {
+				var child = cp.spawn('ssh',
+					['-i', 
+					this.privateKeys + '/' + 
+					instance.KeyName + '.pem',
+					'ubuntu@' + instance.ip, params.command || ''],
+					{stdio: 'inherit'});
+				child.stdout.on('data', (dat) => {console.log(dat.toString('utf-8'))})
+			}).catch(()=>{});
 		})
 	}
 
-	this.umount = function (params) {
-		cp.spawn('fusermount', ['-u',
-					path.resolve(__dirname + '/' + params.host)],
-					{stdio: 'inherit'});
+	this.sftp = function (params) {
+		return new Promise ((resolve, reject) => {
+			if (typeof params === 'undefined') {
+				reject( console.log("Missing required inputs."));
+			}
+
+			this.getInstance(params).then( (instance) => {
+				var child = cp.spawn('sftp', 
+					[
+						'-i',
+						this.privateKeys + '/' + instance.KeyName + '.pem',
+						'ubuntu@' + instance.ip
+					],
+					 {stdio: 'inherit'}
+					);
+				resolve(child);
+			}).catch(()=>{});
+		})
 	}
+
+
+	this.exec = function (params) {
+		var cmd = params.command;
+		return new Promise ((resolve, reject) => {
+			if (typeof params === 'undefined') {
+				reject( console.log("Missing required inputs."));
+			}
+
+			this.getInstance(params).then( (instance) => {
+				var child = cp.spawn('ssh', 
+					[
+						'-i',
+						this.privateKeys + '/' + instance.KeyName + '.pem',
+						'ubuntu@' + instance.ip,
+						cmd
+					],
+					 {stdio: 'inherit'}
+					);
+				resolve(child);
+			}).catch(()=>{});
+		})
+	}
+
+
+
+	this.mount = function (params) {
+		this.getInstance(params).then(function (instance) {
+			if (typeof instance === 'undefined') {
+				console.log(chalk.bold.red('error: instance not found'));
+				return;
+			}
+			var lines = fs.readFileSync('/etc/mtab', 'utf-8').split('\n');
+			for (var i = 0 ; i < lines.length; i++) {
+				if (lines[i].match(instance.ip)) {
+					mountPoint = lines[i].split(' ')[1]
+					console.log(chalk.red('Instance is already mounted at ' + mountPoint));
+					return;
+				}
+			}
+
+
+			var mountPoint = path.resolve(instance.name)
+			if (!fs.existsSync(mountPoint))
+				fs.mkdirSync(mountPoint);
+
+			cp.exec(`sshfs -o allow_other,IdentityFile=${process.env.HOME}/.aws/keys/${instance.KeyName}.pem ${mountPoint} ubuntu@${instance.ip}:/home/ubuntu`, 
+					function (err, resut) {
+						if (!err) {
+							console.log(chalk.bold.yellow('Mounted ' + instance.ip + ' to ' + mountPoint));						
+						} else {
+							console.log(chalk.bold.red("error:") + err.msg)
+							return;
+						}
+					})
+		}).catch(()=>{});
+	}
+
+	this.umount = function (params) {
+		this.getInstance(params).then(function (instance) {
+
+
+			var lines = fs.readFileSync('/etc/mtab', 'utf-8').split('\n');
+			for (var i = 0 ; i < lines.length; i++) {
+				if (lines[i].match(instance.ip)) {
+					mountPoint = lines[i].split(' ')[1]
+					cp.exec(`fusermount -u ${mountPoint}`,
+						function (err, result) {
+							if (err) {console.log(chalk.bold.red("error:"), err.msg)}
+							else {
+								console.log(chalk.bold.green('Unmounted ' + instance.ip + ' from ' + mountPoint))
+							}
+						})
+				}
+			}
+			if (typeof mountPoint === 'undefined') {
+				console.log(chalk.bold.red('error: instance not mounted'))
+			}
+		}).catch(()=>{});
+	}
+
 
 	this.start = function (params) {
 		var ec2 = new AWS.EC2();
@@ -140,7 +280,7 @@ function EC2 (opts) {
 
 		this.getInstance(params).then((instance) => {
 				ec2.startInstances({InstanceIds: [instance.InstanceId]}, cb);
-			})
+			}).catch(()=>{});
 	};
 
 	this.stop = function (params) {
@@ -157,7 +297,7 @@ function EC2 (opts) {
 
 		this.getInstance(params).then((instance) => {
 				ec2.stopInstances({InstanceIds: [instance.InstanceId]}, cb);
-			})
+			}).catch(()=>{});
 	};
 
 
@@ -179,7 +319,7 @@ function EC2 (opts) {
 
 		this.getInstance(params).then((instance) => {
 				ec2.terminateInstances({InstanceIds: [instance.InstanceId]}, cb);
-			})
+			}).catch(()=>{});
 	};
 
 }

@@ -14,7 +14,11 @@ if (argv.command === 'configure') {configure()}
 else {
 	EC2 = require('..');
 	ec2 = new EC2({profile: argv.opts['--profile'] || 'default'});
-	ec2[argv.command](argv.params);
+	try {
+		ec2[argv.command](argv.params);
+	} catch (err) {
+		console.log("error: ", err.msg);
+	}
 }
 
 function configure() {
