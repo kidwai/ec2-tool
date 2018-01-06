@@ -3,8 +3,12 @@ var	AWS = require('aws-sdk'),
 	fs = require('fs'),
 	chalk = require('chalk'),
 	cp = require('child_process'),
-	path = require('path');
-	
+	path = require('path'),
+	utils = require('./lib/utils');
+
+
+
+
 
 function EC2 (opts) {
 	var opts = opts || {profile: 'default'};
@@ -15,7 +19,7 @@ function EC2 (opts) {
 		if (config.accessKeyId.length !== 20 ||
 			config.secretAccessKey.length !== 40)
 			throw err;
-		this.privateKeys = config.privateKeys;
+		this.sshKeys = config.sshKeys;
 		AWS.config.loadFromPath(process.env.HOME + '/.aws/' + this.profile + '.json');
 	} catch (err) {
 		console.log(err.message)
@@ -23,184 +27,174 @@ function EC2 (opts) {
 					"\n\nRun 'ec2 configure'.");
 	}
 
+	this.getInstances = getInstances.bind(this);
+	this.getInstance = getInstance.bind(this);
+	this.ls = ls.bind(this);
+	this.ssh = ssh.bind(this);
+	this.sftp = sftp.bind(this);
+	this.exec = exec.bind(this);
+	this.mount = mount.bind(this);
+	this.umount = umount.bind(this);
+	this.start = start.bind(this);
+	this.stop = stop.bind(this);
+	this.terminate = terminate.bind(this);
+}
 
-	this.ls = function (params) {
-		this.getInstances().then((instances) => {
-		instances.sort((a,b) => {
-			a.name = a.Tags['0']['Value'].toUpperCase();
-			b.name = b.Tags['0']['Value'].toUpperCase();
-			return a.name < b.name ? -1 : 
-				   a.name > b.name ? 1 :
-				   0;
-		});
-
-		var keys = [
-			'state',
-			'ip',
-			'name'
-		];
+EC2.States = {
+	stopped: 'red',
+	terminated: 'red',
+	running: 'green',
+	stopping: 'blue',
+	starting: 'green'
+}	
 
 
 
-		for (var i = 0 ; i < keys.length; i++) {
-			if (keys[i] === 'name')
-				keys[i] += '           ';
+function getInstances(options){ 
+	var options = options || {};
+	var filters = options.filters || {};
+	var sort = options.sort || 'state';
+	var asc = typeof options.ascending !== 'undefined' ? options.ascending : 1;
+	var limit = options.limit || null;
+	return new Promise (function(resolve, reject) {
+		var api = new AWS.EC2();
+		api.describeInstances(
+			function (err, results) {
+				if (err) reject(err);
+				var data = [];
 
-			process.stdout.write(chalk.bold.yellow(keys[i]) + '                ')
-		}
-		console.log('\n');
-	   instances.forEach((instance) => {
+				// parse all instances from all reservations
+				for (var i = 0 ; i < results.Reservations.length; i++) {
 
-			if (typeof instance.PublicIpAddress == 'undefined' &&
-				typeof instance.PublicDnsName !== 'undefined')
-				instance.PublicIpAddress = instance.PublicDnsName
-													.split('-')
-													.slice(1, 4)
-													.join('.');
+					var reservation = results.Reservations[i];
 
-			instance.Tags.forEach((tag) =>{
-				if (tag.Key.toLowerCase() === 'name') {
-					instance.name = tag.Value;		   				
+					for (var j = 0; j < reservation.Instances.length; j++) {
+						var instance = reservation.Instances[j];
+
+						// simplified data item
+						var item = {
+							image: instance.ImageId,
+							id: instance.InstanceId,
+							type: instance.InstanceType,
+							key: instance.KeyName,
+							launched: instance.LaunchTime,
+							ip: instance.PublicIpAddress || null,
+							state: instance.State.Name,
+							name: null
+						};
+
+						// check for a 'Name' tag
+						for (var k = 0 ; k < instance.Tags.length; k++) {
+							if (instance.Tags[k].Key === 'Name')
+								item.name = instance.Tags[k].Value;
+						}
+
+						// filter item out if it doesnt match all filters
+						var keys = Object.keys(filters).filter(key => {
+							return (filters[key] !== null &&
+								   filters[key] !== undefined &&
+								   key in item);
+						});
+						if(keys.filter(key => item[key] === filters[key])
+							.length !== keys.length) continue;
+
+						if (options.limit && data.length === options.limit)
+							break;
+
+						// add to returned data elements
+						data.push(item);
+					}
 				}
-			});
 
-			instance.ip = instance.PublicIpAddress;
-			instance.state = instance.State.Name;
-
-			stateColours = {
-				stopped: 'red',
-				terminated: 'red',
-				running: 'green',
-				stopping: 'blue',
-				starting: 'green'
+				// sort instances by the specified key, flipping
+				// the orientation according to the 'asc' parameter
+				data.sort((a,b) => a[sort] < b[sort] ? -1*(asc-1) : 
+								   a[sort] > b[sort] ?  1*(asc-1) : 0);
+				resolve(data);
 			}
+		)
+	})
+}
 
-			color = stateColours[instance.state]
 
-			instance.state = chalk[stateColours[instance.state]](instance.state)
-			instance.ip    = chalk[stateColours[instance.State.Name]](instance.ip)
-			if (instance.State.Name === 'running') {
-				instance.state = chalk.bold(instance.state)
-				instance.ip = chalk.bold(instance.ip)
-				instance.name = chalk.bold(instance.name)
+function getInstance (filters) {
+	return new Promise((resolve, reject) => {
+		this.getInstances({filters: filters, limit: 1})
+		.then(function(instances) {
+			if (instances.length === 0) {
+				resolve(null);
 			}
-
-			keys = ['state', 'ip', 'name']
-
-			while (instance.ip.length < 14)
-				instance.ip += ' ';
-
-			process.stdout.write(instance.state + '\t\t'  + instance.ip + '\t\t' + instance.name + '\n')
-
+			resolve(instances[0]);
 		});
-	console.log();
-		})
-	}
-
-	this.getInstances = function (parmas) {
-		return new Promise ((resolve, reject) => {
-			(new AWS.EC2()).describeInstances(function (err, result) {
-				if (err) {
-					reject(err);
-				} else {
-					var instances = [];
-					result.Reservations
-						  .forEach((reservation) => {
-						  	reservation.Instances
-						  			   .forEach((instance) => {
-										if (typeof instance.PublicIpAddress == 'undefined' &&
-												typeof instance.PublicDnsName !== 'undefined')
-												instance.PublicIpAddress = instance.PublicDnsName
-																					.split('-')
-																					.slice(1, 4)
-																					.join('.');
-										instance.ip = instance.PublicIpAddress;
-										instance.Tags.forEach(function (tag) {
-											if (tag.Key === 'Name')
-												instance.name = tag.Value;
-										})
-						  			   	instances.push(instance);
-
-
-						  			   });
-						  })
-					resolve(instances);
-				}
-			})		
-		});
-	}
-
-	this.getInstance = function (params) {
-		return new Promise ((resolve, reject) => {
-		this.getInstances().then((instances) => {
-			for (var i = 0 ; i < instances.length; i++) {
-				params.id = params.id || '';
-				params.name = params.name || '';
-				params.ip = params.ip || '';
-				if (instances[i].InstanceId === params.id ||
-					instances[i].name === params.name ||
-					instances[i].ip === params.ip) {
-					resolve(instances[i]);
-				}
-				else if (i+1 === instances.length) {
-					console.log(chalk.bold.red('error: instance not found'));
-					reject(err);							
-				}
-			}
-		}).catch(()=>{});
 	});
-	}
-
-	this.ssh = function (params) {
-		return new Promise ((resolve, reject) => {
-			if (typeof params === 'undefined') {
-				reject( console.log("Missing required inputs."));			
-			}
-			this.getInstance(params).then((instance) => {
-				var child = cp.spawn('ssh',
-					['-i', 
-					this.privateKeys + '/' + 
-					instance.KeyName + '.pem',
-					'ubuntu@' + instance.ip, params.command || ''],
-					{stdio: 'inherit'});
-				child.stdout.on('data', (dat) => {console.log(dat.toString('utf-8'))})
-			}).catch(()=>{});
-		})
-	}
-
-	this.sftp = function (params) {
-		return new Promise ((resolve, reject) => {
-			if (typeof params === 'undefined') {
-				reject( console.log("Missing required inputs."));
-			}
-
-			this.getInstance(params).then( (instance) => {
-				var child = cp.spawn('sftp', 
-					[
-						'-i',
-						this.privateKeys + '/' + instance.KeyName + '.pem',
-						'ubuntu@' + instance.ip
-					],
-					 {stdio: 'inherit'}
-					);
-				resolve(child);
-			}).catch(()=>{});
-		})
-	}
+}
 
 
-	this.exec = function (params) {
-		var cmd = params.command;
-		return new Promise ((resolve, reject) => {
-			if (typeof params === 'undefined') {
-				reject( console.log("Missing required inputs."));
-			}
+function ls(options) {
+	var options = options || {};
+	this.getInstances(options)
+	.then(function (instances) {
+		var keys = options.keys || ['id', 'name', 'state', 'ip'];
+		var opts = {
+			spacing: options.spacing || 2,
+			chalk: options.chalk || {state: EC2.States}
+		}
+		utils.printTable(instances, keys, opts);
+	})
+}
 
+
+
+function ssh(params) {
+	return new Promise ((resolve, reject) => {
+		if (typeof params === 'undefined') {
+			reject( console.log("Missing required inputs."));			
+		}
+		this.getInstance(params).then((instance) => {
+			var child = cp.spawn('ssh',
+				['-i', 
+				this.sshKeys + '/' + 
+				instance.key + '.pem',
+				'ubuntu@' + instance.ip, params.command || ''],
+				{stdio: 'inherit'});
+			child.stdout.on('data', (dat) => {console.log(dat.toString('utf-8'))})
+		}).catch(()=>{});
+	})
+}
+
+function sftp (params) {
+	return new Promise ((resolve, reject) => {
+		if (typeof params === 'undefined') {
+			reject( console.log("Missing required inputs."));
+		}
+
+		this.getInstance(params).then( (instance) => {
+			var child = cp.spawn('sftp', 
+				[
+					'-i',
+					this.sshKeys + '/' + instance.key + '.pem',
+					'ubuntu@' + instance.ip
+				],
+				 {stdio: 'inherit'}
+				);
+			resolve(child);
+		}).catch(()=>{});
+	})
+}
+
+
+function exec (params) {
+	var cmd = params.command || "";
+	return new Promise ((resolve, reject) => {
+		if (typeof params === 'undefined' || cmd.length === 0) {
+			console.log("usage: ec2 exec -n <name> -c <command>");
+		}
+		else {
 			this.getInstance(params).then( (instance) => {
 				var child = cp.spawn('ssh', 
 					[
 						'-i',
-						this.privateKeys + '/' + instance.KeyName + '.pem',
+						this.sshKeys + '/' + instance.key + '.pem',
 						'ubuntu@' + instance.ip,
 						cmd
 					],
@@ -208,118 +202,116 @@ function EC2 (opts) {
 					);
 				resolve(child);
 			}).catch(()=>{});
-		})
-	}
+		}			
+	})
+}
 
 
 
-	this.mount = function (params) {
-		this.getInstance(params).then(function (instance) {
-			if (typeof instance === 'undefined') {
-				console.log(chalk.bold.red('error: instance not found'));
+function mount (params) {
+	this.getInstance(params).then(function (instance) {
+		if (typeof instance === 'undefined') {
+			console.log(chalk.bold.red('error: instance not found'));
+			return;
+		}
+		var lines = fs.readFileSync('/etc/mtab', 'utf-8').split('\n');
+		for (var i = 0 ; i < lines.length; i++) {
+			if (lines[i].match(instance.ip)) {
+				mountPoint = lines[i].split(' ')[1]
+				console.log(chalk.red('Instance is already mounted at ' + mountPoint));
 				return;
 			}
-			var lines = fs.readFileSync('/etc/mtab', 'utf-8').split('\n');
-			for (var i = 0 ; i < lines.length; i++) {
-				if (lines[i].match(instance.ip)) {
-					mountPoint = lines[i].split(' ')[1]
-					console.log(chalk.red('Instance is already mounted at ' + mountPoint));
-					return;
-				}
-			}
+		}
 
 
-			var mountPoint = path.resolve(instance.name)
-			if (!fs.existsSync(mountPoint))
-				fs.mkdirSync(mountPoint);
+		var mountPoint = path.resolve(instance.name)
+		if (!fs.existsSync(mountPoint))
+			fs.mkdirSync(mountPoint);
 
-			cp.exec(`sshfs -o allow_other,IdentityFile=${process.env.HOME}/.aws/keys/${instance.KeyName}.pem ${mountPoint} ubuntu@${instance.ip}:/home/ubuntu`, 
-					function (err, resut) {
-						if (!err) {
-							console.log(chalk.bold.yellow('Mounted ' + instance.ip + ' to ' + mountPoint));						
-						} else {
-							console.log(chalk.bold.red("error:") + err.msg)
-							return;
+		cp.exec(`sudo sshfs -o allow_other,IdentityFile=${process.env.HOME}/.aws/keys/${instance.key}.pem ${mountPoint} ubuntu@${instance.ip}:/home/ubuntu`, 
+				function (err, resut) {
+					if (!err) {
+						console.log(chalk.bold.yellow('Mounted ' + instance.ip + ' to ' + mountPoint));						
+					} else {
+						console.log(err)
+						return;
+					}
+				})
+	}).catch(()=>{});
+}
+
+function umount (params) {
+	this.getInstance(params).then(function (instance) {
+
+
+		var lines = fs.readFileSync('/etc/mtab', 'utf-8').split('\n');
+		for (var i = 0 ; i < lines.length; i++) {
+			if (lines[i].match(instance.ip)) {
+				mountPoint = lines[i].split(' ')[1]
+				cp.exec(`fusermount -u ${mountPoint}`,
+					function (err, result) {
+						if (err) {console.log(chalk.bold.red("error:"), err.msg)}
+						else {
+							console.log(chalk.bold.green('Unmounted ' + instance.ip + ' from ' + mountPoint))
 						}
 					})
-		}).catch(()=>{});
-	}
-
-	this.umount = function (params) {
-		this.getInstance(params).then(function (instance) {
-
-
-			var lines = fs.readFileSync('/etc/mtab', 'utf-8').split('\n');
-			for (var i = 0 ; i < lines.length; i++) {
-				if (lines[i].match(instance.ip)) {
-					mountPoint = lines[i].split(' ')[1]
-					cp.exec(`fusermount -u ${mountPoint}`,
-						function (err, result) {
-							if (err) {console.log(chalk.bold.red("error:"), err.msg)}
-							else {
-								console.log(chalk.bold.green('Unmounted ' + instance.ip + ' from ' + mountPoint))
-							}
-						})
-				}
-			}
-			if (typeof mountPoint === 'undefined') {
-				console.log(chalk.bold.red('error: instance not mounted'))
-			}
-		}).catch(()=>{});
-	}
-
-
-	this.start = function (params) {
-		var ec2 = new AWS.EC2();
-		var cb = function (err, result) {
-			if (err) {
-				console.log(chalk.yellow("Error: ", err.message))
 			}
 		}
-
-
-		this.getInstance(params).then((instance) => {
-				ec2.startInstances({InstanceIds: [instance.InstanceId]}, cb);
-			}).catch(()=>{});
-	};
-
-	this.stop = function (params) {
-		var ec2 = new AWS.EC2();
-		var cb = function (err, result) {
-			if (err) {
-				console.log(chalk.yellow("Error: ", err.message))
-				return process.exit(0);				
-			} else if (result.StoppingInstances[0].InstanceId === params.id) {
-					console.log(chalk.yellow("Stopping " + params.id));
-			}
+		if (typeof mountPoint === 'undefined') {
+			console.log(chalk.bold.red('error: instance not mounted'))
 		}
-
-
-		this.getInstance(params).then((instance) => {
-				ec2.stopInstances({InstanceIds: [instance.InstanceId]}, cb);
-			}).catch(()=>{});
-	};
-
-
-
-
-
-
-	this.terminate = function (params) {
-		var ec2 = new AWS.EC2();
-		var cb = function (err, result) {
-			if (err) {
-				console.log(chalk.yellow("Error: ", err.message))
-				return process.exit(0);				
-			} else if (result.TerminatingInstances[0].InstanceId === params.id) {
-					console.log(chalk.yellow("Stopping " + params.id));
-			}
-		}
-
-
-		this.getInstance(params).then((instance) => {
-				ec2.terminateInstances({InstanceIds: [instance.InstanceId]}, cb);
-			}).catch(()=>{});
-	};
-
+	}).catch(()=>{});
 }
+
+
+function start (params) {
+	var ec2 = new AWS.EC2();
+	var cb = function (err, result) {
+		if (err) {
+			console.log(chalk.yellow("Error: ", err.message))
+		}
+	}
+
+
+	this.getInstance(params).then((instance) => {
+			ec2.startInstances({InstanceIds: [instance.InstanceId]}, cb);
+		}).catch(()=>{});
+};
+
+function stop (params) {
+	var ec2 = new AWS.EC2();
+	var cb = function (err, result) {
+		if (err) {
+			console.log(chalk.yellow("Error: ", err.message))
+			return process.exit(0);				
+		} else if (result.StoppingInstances[0].InstanceId === params.id) {
+				console.log(chalk.yellow("Stopping " + params.id));
+		}
+	}
+
+
+	this.getInstance(params).then((instance) => {
+			ec2.stopInstances({InstanceIds: [instance.InstanceId]}, cb);
+		}).catch(()=>{});
+};
+
+function terminate (params) {
+	var ec2 = new AWS.EC2();
+	var cb = function (err, result) {
+		if (err) {
+			console.log(chalk.yellow("Error: ", err.message))
+			return process.exit(0);				
+		} else if (result.TerminatingInstances[0].InstanceId === params.id) {
+				console.log(chalk.yellow("Stopping " + params.id));
+		}
+	}
+
+
+	this.getInstance(params).then((instance) => {
+			ec2.terminateInstances({InstanceIds: [instance.InstanceId]}, cb);
+		}).catch(()=>{});
+};
+
+
+
+module.exports = EC2;

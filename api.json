@@ -80,6 +80,39 @@
 
 			}
 		},
+		"exec": {
+			"description": "Execute a remote command on an ec2 instance via ssh",
+			"usage": "ec2 exec [parameters]",
+			"parameters": {
+				"-p": {
+					"name": "profile",
+					"type": "string",
+					"description": "The AWS profile to use",
+					"default": "default"
+				},
+				"-k": {
+					"name": "key",
+					"type": "string",
+					"description": "the key to use",
+					"default": null
+				},
+				"-i": {
+					"name": "id",
+					"type": "string",
+					"description": "the instance id to connect to"
+				},
+				"-n": {
+					"name": "name",
+					"type": "string",
+					"description": "name of the instance to connect to"
+				},
+				"-c": {
+					"name": "command",
+					"type": "string",
+					"description": "the command to run"
+				}
+			}
+		},
 		"sftp": {
 			"description": "Transfer files with an ec2 instance via sftp.",
 			"usage": "ec2 sftp [parameters]",

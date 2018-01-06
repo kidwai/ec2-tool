@@ -1,20 +1,31 @@
 # ec2-tool
 
-A command-line tool for interacting with aws ec2 instances faster.
+***
 
-### Requirements
 
-* AWS Access Key ID and Secret Access Key. Get these from your AWS account. [Here](http://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_CreateAccessKey) is how.
+![alt text](img/ec2-ls.png )
 
+
+
+***
 
 ### Install
 
 ```
 $ npm install -g ec2-tool
+$ ec2 configure
+  profile  (default) 
+  region  (us-east-1) 
+  access key id  "access_key"
+  secret access key "secret_access_key"  
+  ssh keys  
 ```
 
-### Usage
+If you do not have an access key id or secret access key, go to [security credentials](https://console.aws.amazon.com/iam/home?region=us-east-1#/security_credential) in the amazon console to find or create a key pair. Note, however, you can still use commands requiring only ssh keys for operation without these.
 
+
+
+### Usage
 
 
 ```
@@ -43,15 +54,17 @@ OPTIONS
 ```
 
 
+
 ### Commands
 
 ***
 
 
-
 #### configure
 
-* Configure your AWS credentials and directory of private keys (.pem):
+
+Configure default options.
+
 
 
 ```
@@ -61,7 +74,7 @@ OPTIONS
   region  (us-east-1) 
   access key id  "access_key"
   secret access key "secret_access_key"  
-  private keys  
+  ssh keys  
 
 ```
 
@@ -73,32 +86,39 @@ OPTIONS
 
 #### ls 
 
-* Lists ec2 instances for the authenticated user.
+Lists ec2 instances for the authenticated user.
 
 
 ```sh
-state        ip            name                           
+          id             name     state        ip      
 
-running   39.252.82.0     website
-running   33.223.64.12    light
+ i-0d9966ba6b5514c17   momo-0   stopped               
+ i-07959805b54afece3   momo-1   stopped               
+ i-04ff281642d0d308f   momo-3   stopped               
+ i-04b9ceda681b36365   momo-2   stopped               
+ i-0a7f1d50f8653146d  bootnode  stopped               
+ i-0594c50d0368aae37   kidwai   running  34.206.87.14 
 ```
 
 ***
 
 ##### ssh
 
-* Open an ssh connection with an ec2 instance.
+Open an ssh connection with an ec2 instance.
 
 ```sh
-$ ec2 ssh -n website
+$ ec2 ssh -n kidwai
 
 ubuntu@ip-172-31-27-62:~$ 
 ```
 
-* Execute a command remotely and return the output
+To use a keyfile not contained in the directory specified in the configuration file, use the `-i` flag as usual.
+
+
+Execute a command remotely and return the output
 
 ```sh
-$ ec2 ssh -n website -c "df -h"
+$ ec2 ssh -n kidwai -c "df -h"
 Filesystem      Size  Used Avail Use% Mounted on
 udev            2.0G     0  2.0G   0% /dev
 tmpfs           396M   41M  355M  11% /run
@@ -112,9 +132,9 @@ tmpfs           396M     0  396M   0% /run/user/1000
 
 ##### sftp
 
-* Open an sftp session with an ec2 instance.
+Open an sftp session with an ec2 instance.
 
-```
+```sh
 $ ec2 sftp -n website
 Connected to 39.252.82.0.
 sftp> get -r /logs
@@ -127,9 +147,8 @@ sftp> get -r /logs
 
 #### mount
 
-* Mount the first instance named "website".
+Mount the instance named "website".
 
-***
 
 
 ```sh
@@ -137,20 +156,19 @@ sftp> get -r /logs
  Mounted 39.252.82.0 to /mnt/ssd/software/nodejs/ec2-tool/website
 ```
 
-* Mount the first instance named "website" to a custom mount point.
+Mount the instance named "website" to a custom mount point.
 
 ```sh
-$ ec2 mount -n website -m
+$ ec2 mount -n website -m /mnt/website
 ```
 
 
 
 #### umount
 
-* Unmount the first instance named website
+Unmount the instance named website
 
 
-***
 
 
 ```sh
@@ -162,9 +180,9 @@ Unmounted 39.252.82.0 from /mnt/ssd/software/nodejs/ec2-tool/website
 
 #### start,stop,terminate
 
-* Start,stop, or terminate an ec2 instance.
+Start,stop, or terminate an ec2 instance.
 
-```
+```sh
  $ ec2 stop -n website
  $ ec2 start -n light
  $ ec2 terminate -i i-34b4b5b3b3
@@ -188,4 +206,3 @@ ubuntu     516  1.2 10.6 1965968 431152 ?      Sl   Jun23 313:17 geth --testnet 
 ubuntu    9497  0.0  0.0  11240  2940 ?        Ss   05:38   0:00 bash -c ps aux | grep geth
 ubuntu    9499  0.0  0.0  12948   976 ?        S    05:38   0:00 grep geth
 ```
-
