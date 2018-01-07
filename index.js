@@ -274,7 +274,7 @@ function start (params) {
 
 
 	this.getInstance(params).then((instance) => {
-			ec2.startInstances({InstanceIds: [instance.InstanceId]}, cb);
+			ec2.startInstances({InstanceIds: [instance.id]}, cb);
 		}).catch(()=>{});
 };
 
@@ -291,7 +291,7 @@ function stop (params) {
 
 
 	this.getInstance(params).then((instance) => {
-			ec2.stopInstances({InstanceIds: [instance.InstanceId]}, cb);
+			ec2.stopInstances({InstanceIds: [instance.id]}, cb);
 		}).catch(()=>{});
 };
 
@@ -308,7 +308,7 @@ function terminate (params) {
 
 
 	this.getInstance(params).then((instance) => {
-			ec2.terminateInstances({InstanceIds: [instance.InstanceId]}, cb);
+			ec2.terminateInstances({InstanceIds: [instance.id]}, cb);
 		}).catch(()=>{});
 };
 
